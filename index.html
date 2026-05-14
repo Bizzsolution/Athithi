@@ -1,0 +1,1488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#1e3a5f" />
+  <meta name="description" content="AtithiBook - Smart Hotel Management for Indian Hotels" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="AtithiBook" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='96' fill='%231e3a5f'/%3E%3Cg transform='translate(96, 96)'%3E%3Crect x='20' y='80' width='280' height='220' fill='%23fdf8f0' rx='8'/%3E%3Crect x='60' y='120' width='50' height='60' fill='%231e3a5f' rx='4'/%3E%3Crect x='140' y='120' width='50' height='60' fill='%231e3a5f' rx='4'/%3E%3Crect x='220' y='120' width='50' height='60' fill='%231e3a5f' rx='4'/%3E%3Crect x='60' y='200' width='50' height='60' fill='%231e3a5f' rx='4'/%3E%3Crect x='220' y='200' width='50' height='60' fill='%231e3a5f' rx='4'/%3E%3Crect x='140' y='200' width='50' height='100' fill='%23d97706' rx='4'/%3E%3Cpolygon points='0,80 160,0 320,80' fill='%23d97706'/%3E%3Ccircle cx='160' cy='40' r='8' fill='%23fdf8f0'/%3E%3C/g%3E%3C/svg%3E" />
+  <link rel="manifest" href="manifest.json" />
+
+  <title>AtithiBook - Hotel Management</title>
+
+  <!-- Load order: React → Babel → Tesseract.js -->
+  <script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.25.6/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@2.1.5/dist/tesseract.min.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body { font-family: 'Hind', sans-serif; background: #1e3a5f; }
+    #loader {
+      position: fixed; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 20px;
+      background: linear-gradient(135deg, #1e3a5f, #2a4a7a); color: #fff;
+      font-family: 'Josefin Sans', sans-serif;
+    }
+    #loader .logo { font-size: 64px; animation: float 2s ease-in-out infinite; }
+    #loader .name { font-size: 26px; font-weight: 700; letter-spacing: 2px; }
+    #loader .msg { font-size: 13px; opacity: 0.7; letter-spacing: 1px; }
+    #loader .spin {
+      width: 32px; height: 32px;
+      border: 3px solid rgba(255,255,255,0.15);
+      border-top-color: #d97706;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+  </style>
+</head>
+<body>
+  <div id="loader">
+    <div class="logo">🏨</div>
+    <div class="name">ATITHIBOOK</div>
+    <div class="msg">Loading hotel management app...</div>
+    <div class="spin"></div>
+  </div>
+
+  <div id="root"></div>
+
+  <script type="text/babel" data-presets="react">
+    // Hooks destructured from React global
+    const { useState, useEffect, useRef } = React;
+
+    // Tesseract is loaded as window.Tesseract — use createWorker from it
+    const createWorker = (...args) => window.Tesseract.createWorker(...args);
+
+
+/* ═══════════════════════════════════════════════════════════════
+   ATITHIBOOK v2 — FIXED OCR + PERSISTENT DOCUMENT VAULT
+   ═══════════════════════════════════════════════════════════════ */
+
+const HOTEL = {
+  name:"Atithi Palace",tagline:"Atithi Devo Bhava",
+  addr:"15, Main Market, Sector 18\nNoida, Uttar Pradesh – 201301",
+  phone:"+91 98765 43210",email:"manager@atithipalace.in",gstin:"09AAACR5055K1Z5",
+};
+const STAFF=[
+  {u:"admin",p:"admin123",name:"Rajesh Kumar",role:"Manager"},
+  {u:"front",p:"front123",name:"Priya Sharma",role:"Receptionist"},
+];
+const BASE_ROOMS=[
+  {id:"101",fl:1,type:"Standard",rate:800},{id:"102",fl:1,type:"Standard",rate:800},
+  {id:"103",fl:1,type:"AC Std",rate:1200},{id:"104",fl:1,type:"Deluxe",rate:1800},
+  {id:"105",fl:1,type:"Standard",rate:800},{id:"201",fl:2,type:"AC Std",rate:1200},
+  {id:"202",fl:2,type:"Deluxe",rate:1800},{id:"203",fl:2,type:"Suite",rate:3000},
+  {id:"204",fl:2,type:"AC Std",rate:1200},{id:"205",fl:2,type:"Standard",rate:800},
+  {id:"301",fl:3,type:"Deluxe",rate:1800},{id:"302",fl:3,type:"Suite",rate:3000},
+  {id:"303",fl:3,type:"AC Std",rate:1200},{id:"304",fl:3,type:"Standard",rate:800},
+  {id:"305",fl:3,type:"Deluxe",rate:1800},
+];
+const MENU=[
+  {id:"v1",cat:"☕ Beverages",name:"Chai",price:20},{id:"v2",cat:"☕ Beverages",name:"Coffee",price:30},
+  {id:"v3",cat:"☕ Beverages",name:"Cold Drink",price:40},{id:"v4",cat:"☕ Beverages",name:"Mineral Water",price:25},
+  {id:"v5",cat:"☕ Beverages",name:"Lassi",price:55},{id:"v6",cat:"☕ Beverages",name:"Fresh Juice",price:70},
+  {id:"f1",cat:"🍛 Food",name:"Breakfast Thali",price:120},{id:"f2",cat:"🍛 Food",name:"Lunch Thali",price:180},
+  {id:"f3",cat:"🍛 Food",name:"Dinner Thali",price:220},{id:"f4",cat:"🍛 Food",name:"Aloo Paratha (2)",price:80},
+  {id:"f5",cat:"🍛 Food",name:"Maggi",price:50},{id:"f6",cat:"🍛 Food",name:"Dal Rice",price:100},
+  {id:"f7",cat:"🍛 Food",name:"Paneer + Roti",price:160},{id:"f8",cat:"🍛 Food",name:"Chole Bhature",price:90},
+  {id:"s1",cat:"🛎️ Services",name:"Laundry/piece",price:30},{id:"s2",cat:"🛎️ Services",name:"Extra Bed",price:400},
+  {id:"s3",cat:"🛎️ Services",name:"Iron Service",price:50},{id:"s4",cat:"🛎️ Services",name:"Cab (Local)",price:300},
+  {id:"s5",cat:"🛎️ Services",name:"Newspaper",price:10},
+];
+const TYPE_META={
+  "Standard":{emoji:"🛏️",color:"#64748b",bg:"#f1f5f9"},
+  "AC Std":{emoji:"❄️",color:"#0369a1",bg:"#e0f2fe"},
+  "Deluxe":{emoji:"🌟",color:"#7c3aed",bg:"#f3e8ff"},
+  "Suite":{emoji:"👑",color:"#b45309",bg:"#fef3c7"},
+};
+
+// ── UTILS ──────────────────────────────────────────────────────
+const uid=()=>`BK${Date.now().toString(36).toUpperCase().slice(-6)}`;
+const todayStr=()=>new Date().toISOString().slice(0,10);
+const tomorrowStr=()=>new Date(Date.now()+86400000).toISOString().slice(0,10);
+const fmtDate=d=>d?new Date(`${d}T12:00:00`).toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"}):"--";
+const fmtMoney=n=>"₹"+(Number(n)||0).toLocaleString("en-IN");
+const nts=(ci,co)=>Math.max(1,Math.ceil((new Date(co)-new Date(ci))/86400000));
+const initRooms=()=>BASE_ROOMS.map(r=>({...r,status:"empty",bookingId:null}));
+
+// ── IMAGE COMPRESSION (canvas → JPEG, max 600px, 65% quality) ──
+const compressImg=(dataUrl,maxW=600)=>new Promise((res,rej)=>{
+  const img=new Image();
+  img.onload=()=>{
+    const sc=Math.min(1,maxW/Math.max(img.width,img.height,1));
+    const c=document.createElement("canvas");
+    c.width=Math.round(img.width*sc); c.height=Math.round(img.height*sc);
+    c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+    res(c.toDataURL("image/jpeg",0.65));
+  };
+  img.onerror=rej; img.src=dataUrl;
+});
+
+// ── DUAL STORAGE (window.storage primary + localStorage backup) ─
+const WS={
+  async get(k){try{const r=await window.storage.get(k);return r?JSON.parse(r.value):null;}catch{return null;}},
+  async set(k,v){try{await window.storage.set(k,JSON.stringify(v));}catch{}},
+  // Images: stored in both window.storage AND localStorage
+  async getRawImg(k){
+    // Try window.storage first
+    try{const r=await window.storage.get(k);if(r?.value)return r.value;}catch{}
+    // Fallback to localStorage
+    try{const v=localStorage.getItem(`ab_${k}`);if(v)return v;}catch{}
+    return null;
+  },
+  async setRawImg(k,v){
+    // Write to both storages
+    try{await window.storage.set(k,v);}catch(e){console.warn("WS img save:",e);}
+    try{localStorage.setItem(`ab_${k}`,v);}catch(e){console.warn("LS img save:",e);}
+  },
+  async list(pfx){try{const r=await window.storage.list(pfx);return r?.keys||[];}catch{return [];}},
+  async del(k){try{await window.storage.delete(k);}catch{}},
+};
+const LS={
+  get:(k,d)=>{try{const v=localStorage.getItem(`ab_${k}`);return v?JSON.parse(v):d;}catch{return d;}},
+  set:(k,v)=>{try{localStorage.setItem(`ab_${k}`,JSON.stringify(v));}catch{}},
+};
+
+// ── INVOICE PRINTER ────────────────────────────────────────────
+const openInvoice=(b,roomObj)=>{
+  const n=nts(b.checkIn,b.checkOut);
+  const cSum=(b.charges||[]).reduce((s,c)=>s+c.price*c.qty,0);
+  const sub=b.roomTotal+cSum; const gst=Math.round(sub*0.12); const grand=sub+gst;
+  const rows=(b.charges||[]).map(c=>`<tr><td>${c.name}</td><td align=center>${c.qty}</td><td align=right>₹${c.price}</td><td align=right>₹${c.price*c.qty}</td></tr>`).join("");
+  const html=`<!DOCTYPE html><html><head><meta charset=utf-8><title>Invoice ${b.id}</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;padding:28px;max-width:700px;margin:0 auto}
+.top{text-align:center;padding-bottom:16px;border-bottom:3px solid #d97706;margin-bottom:20px}
+.hn{font-size:28px;font-weight:900;color:#1e3a5f}.ht{color:#d97706;font-style:italic}.ha{color:#777;font-size:12px;margin-top:4px}
+.meta{display:flex;justify-content:space-between;margin-bottom:18px}.it{font-size:22px;font-weight:800;color:#1e3a5f}
+.rb{background:#1e3a5f;color:#fff;padding:10px 22px;border-radius:10px;text-align:center}
+.rbn{font-size:26px;font-weight:900}.rbt{font-size:12px;color:#d97706}
+.info{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:18px 0}
+.ib{background:#fdf8f0;padding:11px;border-radius:7px;border-left:3px solid #d97706}
+.ibl{font-size:10px;text-transform:uppercase;color:#888;margin-bottom:3px}.ibv{font-weight:700;color:#1e3a5f;font-size:14px}
+table{width:100%;border-collapse:collapse;margin:16px 0}
+th{background:#1e3a5f;color:#fff;padding:10px;font-size:12px;text-align:left}
+td{padding:9px 10px;border-bottom:1px solid #eee;font-size:13px}
+.sr td{background:#fdf8f0;font-weight:600}.gr td{background:#fffbf0}
+.gt td{background:#1e3a5f;color:#fff;font-size:17px;font-weight:900;padding:14px 10px}
+.ft{text-align:center;margin-top:20px;padding-top:16px;border-top:1px solid #ddd;font-size:12px;color:#888;line-height:1.9}
+@media print{body{padding:8px}}</style>
+</head><body>
+<div class=top><div class=hn>🏨 ${HOTEL.name}</div><div class=ht>${HOTEL.tagline}</div>
+<div class=ha>${HOTEL.addr.replace(/\n/," | ")} | ${HOTEL.phone}<br>GSTIN: ${HOTEL.gstin}</div></div>
+<div class=meta><div><div class=it>TAX INVOICE</div>
+<div style="color:#888;font-size:12px;margin-top:4px">No: <b>${b.id}</b> | ${new Date().toLocaleString("en-IN")}</div></div>
+<div class=rb><div class=rbn>Room ${b.roomId}</div><div class=rbt>${roomObj?.type||""}</div></div></div>
+<div class=info>
+<div class=ib><div class=ibl>Guest</div><div class=ibv>${b.name}</div></div>
+<div class=ib><div class=ibl>Aadhaar</div><div class=ibv>${b.aadhaar||"XXXX XXXX XXXX"}</div></div>
+<div class=ib><div class=ibl>Mobile</div><div class=ibv>${b.mobile}</div></div>
+<div class=ib><div class=ibl>Address</div><div class=ibv>${(b.address||"--").slice(0,50)}</div></div>
+<div class=ib><div class=ibl>Check-In</div><div class=ibv>${fmtDate(b.checkIn)}</div></div>
+<div class=ib><div class=ibl>Check-Out / Nights</div><div class=ibv>${fmtDate(b.checkOut)} · ${n}N</div></div>
+</div>
+<table><thead><tr><th>Description</th><th align=center>Qty</th><th align=right>Rate</th><th align=right>Amount</th></tr></thead>
+<tbody>
+<tr><td>Room ${b.roomId} — ${roomObj?.type} (${n} Night${n>1?"s":""})</td><td align=center>${n}</td><td align=right>₹${roomObj?.rate||0}/night</td><td align=right>₹${b.roomTotal}</td></tr>
+${rows}
+<tr class=sr><td colspan=3>Subtotal</td><td align=right>₹${sub}</td></tr>
+<tr class=gr><td colspan=3>GST @ 12% (SAC 9963)</td><td align=right>₹${gst}</td></tr>
+<tr class=gt><td colspan=3>GRAND TOTAL</td><td align=right>₹${grand}</td></tr>
+</tbody></table>
+<div class=ft><b style="font-size:16px;color:#1e3a5f">🙏 Thank you for staying with ${HOTEL.name}!</b>
+<div>${HOTEL.phone} | ${HOTEL.email}</div>
+<div style="color:#d97706;font-style:italic">"${HOTEL.tagline}"</div></div>
+${b.signature?`<div style="display:flex;justify-content:flex-end;margin-top:20px;padding-top:12px;border-top:1px solid #eee">
+<div style="text-align:center">
+<img src="${b.signature}" style="height:70px;display:block;margin-bottom:4px"/>
+<div style="border-top:1.5px solid #333;width:180px;margin:0 auto"></div>
+<div style="font-size:11px;color:#888;margin-top:4px">Signature — ${b.name}</div>
+</div></div>`:``}
+</body></html>`;
+  const w=window.open("","_blank","width=780,height=950");
+  if(w){w.document.write(html);w.document.close();setTimeout(()=>w.print(),800);}
+};
+
+// ── GLOBAL CSS ─────────────────────────────────────────────────
+const CSS=`
+@import url('https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@300;400;600;700&family=Hind:wght@300;400;500;600&display=swap');
+:root{--navy:#1e3a5f;--navy2:#152c49;--gold:#d97706;--gold2:#b45309;--cream:#fdf8f0;--card:#fff;
+--green:#16a34a;--gbg:#dcfce7;--red:#dc2626;--rbg:#fee2e2;--blue:#0369a1;--bbg:#e0f2fe;
+--purple:#7c3aed;--pbg:#f3e8ff;--muted:#6b7280;--border:#e5e0d8;--r:14px;--sh:0 2px 12px rgba(30,58,95,.1);}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{font-family:'Hind',sans-serif;background:var(--cream);color:var(--navy);}
+h1,h2,h3,h4{font-family:'Josefin Sans',sans-serif;}
+input:not([type=file]):not([type=date]),select,textarea{font-family:'Hind',sans-serif;font-size:15px;outline:none;border:1.5px solid var(--border);border-radius:10px;padding:11px 14px;background:#fff;color:var(--navy);width:100%;transition:border-color .2s;}
+input[type=file]{font-family:'Hind',sans-serif;font-size:13px;cursor:pointer;color:var(--navy);}
+input[type=date]{font-family:'Hind',sans-serif;font-size:15px;outline:none;border:1.5px solid var(--border);border-radius:10px;padding:11px 14px;background:#fff;color:var(--navy);width:100%;}
+input:focus,select:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(217,119,6,.12);}
+button{cursor:pointer;font-family:'Josefin Sans',sans-serif;letter-spacing:.5px;}
+.scrollable{overflow-y:auto;-webkit-overflow-scrolling:touch;}.hs::-webkit-scrollbar{display:none;}
+.card{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);border:1px solid rgba(229,224,216,.6);}
+.badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;font-family:'Josefin Sans',sans-serif;}
+.bg{background:var(--gbg);color:var(--green);}.br{background:var(--rbg);color:var(--red);}
+.bo{background:#fef3c7;color:var(--gold2);}.bb{background:var(--bbg);color:var(--blue);}
+.btn-p{background:var(--gold);color:#fff;border:none;padding:13px 24px;border-radius:12px;font-size:15px;font-weight:600;transition:background .2s,transform .1s;width:100%;}
+.btn-p:hover{background:var(--gold2);}.btn-p:active{transform:scale(.98);}
+.btn-n{background:var(--navy);color:#fff;border:none;padding:13px 24px;border-radius:12px;font-size:15px;font-weight:600;width:100%;}
+.btn-o{background:transparent;color:var(--navy);border:1.5px solid var(--border);padding:11px 20px;border-radius:12px;font-size:14px;font-weight:600;}
+.btn-d{background:var(--red);color:#fff;border:none;padding:13px 24px;border-radius:12px;font-size:15px;font-weight:600;width:100%;}
+.btn-s{padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;font-family:'Josefin Sans',sans-serif;border:none;cursor:pointer;}
+.spin{animation:spin 1s linear infinite;}@keyframes spin{to{transform:rotate(360deg);}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
+.fu{animation:fadeUp .35s ease both;}
+@keyframes slideUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
+.su{animation:slideUp .3s ease both;}
+.st{font-family:'Josefin Sans',sans-serif;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:10px;}
+`;
+
+// ═══════════════════════════════════════════════════════════════
+//  COMPONENTS
+// ═══════════════════════════════════════════════════════════════
+
+function LoginScreen({onLogin}){
+  const[u,su]=useState("");const[p,sp]=useState("");const[err,se]=useState("");const[ld,sl]=useState(false);
+  const go=()=>{
+    if(!u||!p){se("Enter credentials");return;}
+    sl(true);se("");
+    setTimeout(()=>{
+      const s=STAFF.find(x=>x.u===u.trim()&&x.p===p);
+      if(s)onLogin(s);else{se("Invalid username or password");sl(false);}
+    },600);
+  };
+  return(
+    <div style={{minHeight:"100vh",background:"linear-gradient(145deg,#152c49,#1e3a5f,#2a4a7a)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+      <div style={{position:"absolute",inset:0,opacity:.05,backgroundImage:"repeating-linear-gradient(45deg,#fff 0,#fff 1px,transparent 0,transparent 50%)",backgroundSize:"20px 20px"}}/>
+      <div className="card fu" style={{width:"100%",maxWidth:380,padding:"36px 28px",position:"relative"}}>
+        <div style={{textAlign:"center",marginBottom:32}}>
+          <div style={{fontSize:54,marginBottom:8}}>🏨</div>
+          <h1 style={{fontSize:28,color:"var(--navy)",letterSpacing:2}}>ATITHIBOOK</h1>
+          <p style={{color:"var(--gold)",fontStyle:"italic",fontSize:14,marginTop:4}}>{HOTEL.tagline}</p>
+          <p style={{color:"var(--muted)",fontSize:12,marginTop:6}}>{HOTEL.name} · Staff Portal</p>
+        </div>
+        <div style={{height:1,background:"linear-gradient(90deg,transparent,var(--border),transparent)",marginBottom:24}}/>
+        <div style={{display:"flex",flexDirection:"column",gap:14}}>
+          <div><label style={{fontSize:12,fontWeight:600,color:"var(--muted)",display:"block",marginBottom:6}}>USERNAME</label>
+            <input placeholder="Enter username" value={u} onChange={e=>su(e.target.value)} onKeyDown={e=>e.key==="Enter"&&go()}/></div>
+          <div><label style={{fontSize:12,fontWeight:600,color:"var(--muted)",display:"block",marginBottom:6}}>PASSWORD</label>
+            <input type="password" placeholder="Enter password" value={p} onChange={e=>sp(e.target.value)} onKeyDown={e=>e.key==="Enter"&&go()}/></div>
+          {err&&<div style={{background:"var(--rbg)",color:"var(--red)",padding:"10px 14px",borderRadius:10,fontSize:13}}>⚠️ {err}</div>}
+          <button className="btn-p" onClick={go} disabled={ld}>{ld?"⏳ Verifying...":"Login to Dashboard →"}</button>
+        </div>
+        <div style={{marginTop:20,padding:"12px 16px",background:"var(--cream)",borderRadius:10,fontSize:12,color:"var(--muted)"}}>
+          <b style={{color:"var(--navy)"}}>Demo:</b> admin / admin123 &nbsp;|&nbsp; front / front123
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatCard({emoji,label,value,color,sub}){
+  return(
+    <div className="card" style={{padding:16,display:"flex",alignItems:"center",gap:12}}>
+      <div style={{width:44,height:44,borderRadius:12,background:`${color}18`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>{emoji}</div>
+      <div style={{minWidth:0}}>
+        <div style={{fontSize:20,fontWeight:700,color,fontFamily:"'Josefin Sans',sans-serif",lineHeight:1}}>{value}</div>
+        <div style={{fontSize:12,color:"var(--muted)",marginTop:2}}>{label}</div>
+        {sub&&<div style={{fontSize:11,color,marginTop:1}}>{sub}</div>}
+      </div>
+    </div>
+  );
+}
+
+/* ─── AADHAAR SCANNER — LABEL/INPUT (works in iframe) ──────────── */
+/* ─── AADHAAR SCANNER — DIRECT FILE INPUT (simplest, always works) */
+function AadhaarScanner({tempId,onExtracted}){
+  const[photos,setPhotos]=useState({front:null,back:null});
+  const[fields,setFields]=useState({name:"",dob:"",gender:"",aadhaar:"",address:""});
+  const setF=(k,v)=>setFields(p=>({...p,[k]:v}));
+  const ok=fields.name.trim()&&fields.aadhaar.trim();
+
+  const onFile=(e,side)=>{
+    const file=e.target.files&&e.target.files[0];
+    if(!file)return;
+    const rd=new FileReader();
+    rd.onload=function(ev){
+      const du=ev.target.result;
+      setPhotos(function(p){return({...p,[side]:du});});
+      try{localStorage.setItem("ph_"+side+"_"+(tempId||"x"),du);}catch(x){}
+    };
+    rd.readAsDataURL(file);
+    e.target.value="";
+  };
+
+  return(
+    <div style={{background:"#fff",border:"1.5px solid #e2e8f0",borderRadius:16,padding:16}}>
+      <div style={{fontWeight:700,fontSize:15,color:"#1e3a5f",marginBottom:4}}>🪪 Aadhaar Card</div>
+      <div style={{fontSize:11,color:"#64748b",marginBottom:12}}>Upload photo for reference, then fill details below</div>
+
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+        <div>
+          <div style={{fontSize:11,fontWeight:700,color:"#1e3a5f",marginBottom:5}}>🔵 FRONT SIDE</div>
+          {photos.front&&<img src={photos.front} style={{width:"100%",height:65,objectFit:"contain",borderRadius:6,border:"1px solid #e2e8f0",marginBottom:5,display:"block"}}/>}
+          <input type="file" accept="image/*" onChange={function(e){onFile(e,"front");}}
+            style={{display:"block",width:"100%",boxSizing:"border-box",padding:"8px 6px",border:"2px dashed #1e3a5f",borderRadius:8,background:"#eff6ff",cursor:"pointer",fontSize:11,color:"#1e3a5f"}}/>
+        </div>
+        <div>
+          <div style={{fontSize:11,fontWeight:700,color:"#7c3aed",marginBottom:5}}>🟡 BACK SIDE</div>
+          {photos.back&&<img src={photos.back} style={{width:"100%",height:65,objectFit:"contain",borderRadius:6,border:"1px solid #e2e8f0",marginBottom:5,display:"block"}}/>}
+          <input type="file" accept="image/*" onChange={function(e){onFile(e,"back");}}
+            style={{display:"block",width:"100%",boxSizing:"border-box",padding:"8px 6px",border:"2px dashed #7c3aed",borderRadius:8,background:"#f5f3ff",cursor:"pointer",fontSize:11,color:"#7c3aed"}}/>
+        </div>
+      </div>
+
+      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+        <input value={fields.name} onChange={function(e){setF("name",e.target.value);}} placeholder="Full Name *"
+          style={{padding:"10px 12px",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:14,width:"100%",boxSizing:"border-box",fontFamily:"inherit"}}/>
+        <input value={fields.aadhaar} onChange={function(e){setF("aadhaar",e.target.value);}} placeholder="Aadhaar No. * — XXXX XXXX XXXX"
+          style={{padding:"10px 12px",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:14,width:"100%",boxSizing:"border-box",fontFamily:"inherit"}}/>
+        <input value={fields.dob} onChange={function(e){setF("dob",e.target.value);}} placeholder="Date of Birth — DD/MM/YYYY"
+          style={{padding:"10px 12px",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:14,width:"100%",boxSizing:"border-box",fontFamily:"inherit"}}/>
+        <div style={{display:"flex",gap:6}}>
+          {["Male","Female","Other"].map(function(g){return(
+            <button key={g} onClick={function(){setF("gender",g);}}
+              style={{flex:1,padding:"9px 0",border:"1.5px solid "+(fields.gender===g?"#1e3a5f":"#e2e8f0"),borderRadius:8,
+                background:fields.gender===g?"#1e3a5f":"#fff",color:fields.gender===g?"#fff":"#475569",fontSize:12,fontWeight:700,cursor:"pointer"}}>
+              {g}
+            </button>
+          );})}
+        </div>
+        <input value={fields.address} onChange={function(e){setF("address",e.target.value);}} placeholder="Address (optional)"
+          style={{padding:"10px 12px",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:14,width:"100%",boxSizing:"border-box",fontFamily:"inherit"}}/>
+        <button onClick={function(){if(ok)onExtracted({...fields,photoFront:photos.front,photoBack:photos.back});}}
+          style={{padding:"13px",border:"none",borderRadius:12,fontWeight:700,fontSize:14,fontFamily:"inherit",
+            background:ok?"#d97706":"#e2e8f0",color:ok?"#fff":"#94a3b8",cursor:ok?"pointer":"not-allowed",width:"100%",marginTop:2}}>
+          {ok?"✅ Use These Details →":"Enter Name + Aadhaar No. first"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SignaturePad({onSign}){
+  const canvasRef=useRef();
+  const drawing=useRef(false);
+  const lastPos=useRef(null);
+  const[signed,setSigned]=useState(false);
+  const[saved,setSaved]=useState(false);
+
+  const getPos=(e)=>{
+    const c=canvasRef.current;const rect=c.getBoundingClientRect();
+    const sx=c.width/rect.width,sy=c.height/rect.height;
+    const src=e.touches?e.touches[0]:e;
+    return{x:(src.clientX-rect.left)*sx,y:(src.clientY-rect.top)*sy};
+  };
+  const startDraw=(e)=>{e.preventDefault();drawing.current=true;lastPos.current=getPos(e);};
+  const draw=(e)=>{
+    e.preventDefault();if(!drawing.current)return;
+    const c=canvasRef.current;const ctx=c.getContext("2d");
+    const pos=getPos(e);
+    ctx.beginPath();ctx.moveTo(lastPos.current.x,lastPos.current.y);
+    ctx.lineTo(pos.x,pos.y);
+    ctx.strokeStyle="#1e3a5f";ctx.lineWidth=2.5;ctx.lineCap="round";ctx.lineJoin="round";
+    ctx.stroke();lastPos.current=pos;
+    if(!signed)setSigned(true);if(saved){setSaved(false);onSign(null);}
+  };
+  const stopDraw=(e)=>{e.preventDefault();drawing.current=false;};
+  const clearPad=()=>{
+    const c=canvasRef.current;c.getContext("2d").clearRect(0,0,c.width,c.height);
+    setSigned(false);setSaved(false);onSign(null);
+  };
+  const saveSig=()=>{
+    if(!signed)return;
+    const dataUrl=canvasRef.current.toDataURL("image/png");
+    onSign(dataUrl);setSaved(true);
+  };
+
+  return(
+    <div className="card" style={{padding:16}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+        <div>
+          <div style={{fontWeight:700,fontSize:15,color:"var(--navy)"}}>✍️ Guest Signature</div>
+          <div style={{fontSize:11,color:"var(--muted)"}}>Sign with finger · Used on invoice & vault</div>
+        </div>
+        {saved&&<span className="badge bg">✓ Captured</span>}
+      </div>
+      <div style={{position:"relative",borderRadius:10,overflow:"hidden",border:`1.5px dashed ${signed?"var(--navy)":"var(--border)"}`,background:"#fff"}}>
+        <canvas ref={canvasRef} width={360} height={140}
+          style={{width:"100%",height:140,display:"block",touchAction:"none",cursor:"crosshair"}}
+          onMouseDown={startDraw} onMouseMove={draw} onMouseUp={stopDraw} onMouseLeave={stopDraw}
+          onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={stopDraw}
+        />
+        {!signed&&(
+          <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",pointerEvents:"none",gap:6}}>
+            <span style={{fontSize:28,opacity:.25}}>✍️</span>
+            <span style={{fontSize:12,color:"var(--muted)",opacity:.5}}>Draw signature here</span>
+          </div>
+        )}
+      </div>
+      <div style={{display:"flex",gap:8,marginTop:10}}>
+        <button onClick={clearPad} className="btn-o" style={{flex:1,padding:"9px 0",fontSize:13}}>🗑️ Clear</button>
+        <button onClick={saveSig} disabled={!signed} className={signed?"btn-n":"btn-o"}
+          style={{flex:2,padding:"9px 0",fontSize:13,opacity:signed?1:.5}}>
+          {saved?"✅ Signature Saved":"💾 Confirm Signature"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ── DASHBOARD ────────────────────────────────────────────────── */
+function DashboardView({rooms,bookings,user,setView,setModal,profile}){
+  const occ=rooms.filter(r=>r.status==="occupied");
+  const avail=rooms.filter(r=>r.status==="empty");
+  const active=bookings.filter(b=>b.status==="active");
+  const todayOut=bookings.filter(b=>b.checkOut===todayStr()&&b.status==="active");
+  const todayRev=bookings.filter(b=>b.status==="checkedout"&&b.checkOutActual===todayStr()).reduce((s,b)=>s+(b.grandTotal||0),0);
+  const ownerName=profile?.ownerName||user.name;
+  const tagline=profile?.hotelTagline||HOTEL.tagline;
+  return(
+    <div className="scrollable hs" style={{height:"100%",paddingBottom:20}}>
+
+      {/* Banner / Welcome */}
+      <div style={{padding:profile?.hotelBanner?0:"20px 16px 12px",background:profile?.hotelBanner?"transparent":"linear-gradient(135deg,var(--navy),#2a4a7a)",borderRadius:"0 0 20px 20px",marginBottom:16,position:"relative",overflow:"hidden"}}>
+        {profile?.hotelBanner&&(
+          <div style={{position:"relative"}}>
+            <img src={profile.hotelBanner} style={{width:"100%",height:160,objectFit:"cover",display:"block"}}/>
+            <div style={{position:"absolute",inset:0,background:"linear-gradient(to bottom,rgba(30,58,95,.2),rgba(30,58,95,.85))",padding:"16px",display:"flex",flexDirection:"column",justifyContent:"flex-end",color:"#fff"}}>
+              <div style={{fontSize:10,color:"rgba(255,255,255,.85)",fontFamily:"'Josefin Sans',sans-serif",letterSpacing:1}}>GOOD {new Date().getHours()<12?"MORNING":new Date().getHours()<17?"AFTERNOON":"EVENING"}</div>
+              <div style={{fontSize:20,fontWeight:700,fontFamily:"'Josefin Sans',sans-serif"}}>{ownerName}</div>
+              <div style={{fontSize:11,color:"var(--gold)"}}>{user.role} · {tagline}</div>
+            </div>
+            <button onClick={()=>setModal({type:"editProfile"})} style={{position:"absolute",top:10,right:10,padding:"6px 10px",background:"rgba(255,255,255,.2)",backdropFilter:"blur(8px)",border:"1px solid rgba(255,255,255,.3)",borderRadius:8,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>✏️ Edit</button>
+          </div>
+        )}
+        {!profile?.hotelBanner&&(
+          <>
+            <div style={{fontSize:11,color:"rgba(255,255,255,.6)",marginBottom:4,fontFamily:"'Josefin Sans',sans-serif",letterSpacing:1}}>
+              GOOD {new Date().getHours()<12?"MORNING":new Date().getHours()<17?"AFTERNOON":"EVENING"}
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div>
+                <div style={{fontSize:20,fontWeight:700,color:"#fff",fontFamily:"'Josefin Sans',sans-serif"}}>{ownerName}</div>
+                <div style={{fontSize:12,color:"#d97706",marginTop:2}}>{user.role} · {tagline}</div>
+                <div style={{fontSize:11,color:"rgba(255,255,255,.5)",marginTop:6}}>{new Date().toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</div>
+              </div>
+              <button onClick={()=>setModal({type:"editProfile"})} style={{padding:"7px 12px",background:"rgba(255,255,255,.15)",border:"1px solid rgba(255,255,255,.25)",borderRadius:8,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>✏️ Edit</button>
+            </div>
+          </>
+        )}
+      </div>
+      <div style={{padding:"0 14px",display:"flex",flexDirection:"column",gap:10}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <StatCard emoji="🔴" label="Occupied" value={occ.length} color="var(--red)" sub={`of ${rooms.length} rooms`}/>
+          <StatCard emoji="🟢" label="Available" value={avail.length} color="var(--green)" sub="Ready now"/>
+          <StatCard emoji="📋" label="Active Guests" value={active.length} color="var(--navy)"/>
+          <StatCard emoji="💰" label="Today Revenue" value={fmtMoney(todayRev)} color="var(--gold2)"/>
+        </div>
+        {todayOut.length>0&&(
+          <div className="card" style={{padding:"14px 16px"}}>
+            <div className="st">⚠️ CHECK-OUTS TODAY ({todayOut.length})</div>
+            {todayOut.map(b=>{const room=rooms.find(r=>r.id===b.roomId);return(
+              <div key={b.id} onClick={()=>setModal({type:"booking",b,room})} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 12px",background:"#fff8f0",borderRadius:10,cursor:"pointer",border:"1px solid #fde68a",marginBottom:6}}>
+                <div><div style={{fontWeight:600,fontSize:14}}>{b.name}</div><div style={{fontSize:12,color:"var(--muted)"}}>Room {b.roomId}</div></div>
+                <span className="badge bo">Due Today</span>
+              </div>
+            );})}
+          </div>
+        )}
+        <div className="card" style={{padding:"14px 16px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <div className="st" style={{marginBottom:0}}>LIVE ROOM MAP</div>
+            <button className="btn-s" onClick={()=>setView("rooms")} style={{background:"var(--cream)",color:"var(--navy)",border:"1px solid var(--border)"}}>View All</button>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:6}}>
+            {rooms.map(r=>(
+              <div key={r.id} onClick={()=>setView("rooms")} style={{aspectRatio:"1",borderRadius:8,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
+                background:r.status==="occupied"?"#fee2e2":"#dcfce7",border:`1.5px solid ${r.status==="occupied"?"#fca5a5":"#86efac"}`,cursor:"pointer",fontSize:9,fontWeight:700,color:r.status==="occupied"?"var(--red)":"var(--green)"}}>
+                {r.status==="occupied"?"🔴":"🟢"}{r.id}
+              </div>
+            ))}
+          </div>
+          <div style={{display:"flex",gap:16,marginTop:10,fontSize:12,color:"var(--muted)"}}><span>🟢 {avail.length} Free</span><span>🔴 {occ.length} Occupied</span></div>
+        </div>
+        {active.length>0&&(
+          <div className="card" style={{padding:"14px 16px"}}>
+            <div className="st">ACTIVE GUESTS ({active.length})</div>
+            {active.slice(0,5).map(b=>{
+              const room=rooms.find(r=>r.id===b.roomId);
+              const charges=(b.charges||[]).reduce((s,c)=>s+c.price*c.qty,0);
+              const n=nts(b.checkIn,b.checkOut);const sub=b.roomTotal+charges;
+              return(
+                <div key={b.id} onClick={()=>setModal({type:"booking",b,room})} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"11px 12px",background:"var(--cream)",borderRadius:10,cursor:"pointer",marginBottom:6}}>
+                  <div>
+                    <div style={{fontWeight:600,fontSize:14}}>{b.name}</div>
+                    <div style={{fontSize:12,color:"var(--muted)"}}>Room {b.roomId} · {n} Night{n>1?"s":""} · Out: {fmtDate(b.checkOut)}</div>
+                  </div>
+                  <div style={{textAlign:"right"}}><div style={{fontWeight:700,color:"var(--navy)",fontSize:14}}>{fmtMoney(sub)}</div><div style={{fontSize:11,color:"var(--muted)"}}>+GST</div></div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── ROOMS VIEW ───────────────────────────────────────────────── */
+function RoomsView({rooms,bookings,setModal,setView,setCheckInRoom}){
+  const[fl,setFl]=useState("all");
+  return(
+    <div className="scrollable hs" style={{height:"100%",paddingBottom:20}}>
+      <div style={{padding:"16px 14px 10px"}}><h2 style={{fontSize:20}}>Room Status</h2><p style={{fontSize:13,color:"var(--muted)"}}>Tap to manage or check-in</p></div>
+      <div style={{display:"flex",gap:8,padding:"0 14px",marginBottom:14}}>
+        {["all",1,2,3].map(f=>(
+          <button key={f} onClick={()=>setFl(f)} style={{padding:"7px 16px",borderRadius:20,border:"1.5px solid",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"'Josefin Sans',sans-serif",
+            background:fl===f?"var(--navy)":"transparent",color:fl===f?"#fff":"var(--navy)",borderColor:fl===f?"var(--navy)":"var(--border)"}}>
+            {f==="all"?"All":` Fl ${f}`}
+          </button>
+        ))}
+      </div>
+      <div style={{padding:"0 14px",display:"flex",flexDirection:"column",gap:14}}>
+        {[1,2,3].filter(f=>fl==="all"||fl===f).map(floor=>(
+          <div key={floor} className="card" style={{padding:"14px 16px"}}>
+            <div className="st">FLOOR {floor}</div>
+            {rooms.filter(r=>r.fl===floor).map(r=>{
+              const occ=r.status==="occupied";const b=occ?bookings.find(bk=>bk.id===r.bookingId):null;
+              const meta=TYPE_META[r.type]||TYPE_META["Standard"];
+              const thumb=r.photos&&r.photos[0];
+              return(
+                <div key={r.id} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",borderRadius:12,marginBottom:8,
+                    background:occ?"#fff5f5":"#f0fdf4",border:`1.5px solid ${occ?"#fca5a5":"#86efac"}`}}>
+                  <div onClick={()=>{if(occ&&b)setModal({type:"booking",b,room:r});else{setCheckInRoom(r);setView("checkin");}}}
+                    style={{display:"flex",alignItems:"center",gap:12,flex:1,minWidth:0,cursor:"pointer"}}>
+                    {thumb?
+                      <img src={thumb} style={{width:48,height:48,borderRadius:10,objectFit:"cover",flexShrink:0,border:"1.5px solid #fff"}}/>
+                      :<div style={{width:48,height:48,borderRadius:10,background:occ?"#fee2e2":"#dcfce7",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontFamily:"'Josefin Sans',sans-serif",fontWeight:700,fontSize:15,color:occ?"var(--red)":"var(--green)"}}>{r.id}</div>
+                    }
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                        <span style={{fontSize:14,fontWeight:600}}>{meta.emoji} {r.name||`Room ${r.id}`}</span>
+                        <span className={`badge ${occ?"br":"bg"}`}>{occ?"Occupied":"Available"}</span>
+                      </div>
+                      <div style={{fontSize:12,color:"var(--muted)",marginTop:3}}>
+                        {r.type} · {occ&&b?`${b.name} · Out: ${fmtDate(b.checkOut)}`:`₹${r.rate}/night`}
+                      </div>
+                    </div>
+                  </div>
+                  <button onClick={(e)=>{e.stopPropagation();setModal({type:"editRoom",room:r});}}
+                    style={{padding:"7px 9px",background:"rgba(255,255,255,.8)",border:"1px solid var(--border)",borderRadius:8,cursor:"pointer",fontSize:14,flexShrink:0}}>✏️</button>
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ── CHECK-IN VIEW ────────────────────────────────────────────── */
+function CheckInView({rooms,checkInRoom,onCheckIn,setView}){
+  const empty=rooms.filter(r=>r.status==="empty");
+  const tempId=useRef(uid()).current;
+  const[form,setForm]=useState({roomId:checkInRoom?.id||empty[0]?.id||"",name:"",mobile:"",aadhaar:"",address:"",dob:"",gender:"",adults:"1",children:"0",checkIn:todayStr(),checkOut:tomorrowStr(),purpose:"Leisure"});
+  const[done,setDone]=useState(false);
+  const[signature,setSignature]=useState(null);
+  const[photoF,setPhotoF]=useState(null);
+  const[photoB,setPhotoB]=useState(null);
+  const[scanning,setScanning]=useState(null); // "f" | "b" | null
+  const[scanMsg,setScanMsg]=useState("");
+  const fld=(k,v)=>setForm(p=>({...p,[k]:v}));
+  const fldAadhaar=v=>{const digits=v.replace(/\D/g,"").slice(0,12);const f=digits.match(/.{1,4}/g)?.join(" ")||"";fld("aadhaar",f);};
+  const onPhoto=(e,side)=>{
+    const file=e.target.files&&e.target.files[0];if(!file)return;
+    const r=new FileReader();
+    r.onload=async ev=>{
+      const du=ev.target.result;
+      (side==="f"?setPhotoF:setPhotoB)(du);
+      try{localStorage.setItem("ph_"+side+"_"+tempId,du);}catch(x){}
+      // 🚀 Auto-trigger scan immediately after upload
+      await scanAadhaar(side,du);
+    };
+    r.readAsDataURL(file);
+    e.target.value="";
+  };
+
+  // ── BROWSER OCR — Tesseract.js (works offline, no API key needed) ──
+  const scanAadhaar=async(side,dataUrlArg)=>{
+    const photo=dataUrlArg||(side==="f"?photoF:photoB);
+    if(!photo){alert("Upload photo first");return;}
+    setScanning(side);setScanMsg("⏳ Loading OCR engine (first time only, ~10s)...");
+    try{
+      const worker=await createWorker("eng",1,{
+        logger:m=>{if(m.status==="recognizing text")setScanMsg(`⏳ Reading Aadhaar... ${Math.round((m.progress||0)*100)}%`);}
+      });
+      setScanMsg("⏳ Reading Aadhaar text...");
+      const {data:{text}}=await worker.recognize(photo);
+      await worker.terminate();
+      if(!text||!text.trim())throw new Error("No text detected. Use clearer, well-lit photo.");
+      let count=0;
+      // Aadhaar number (12 digits)
+      const aM=text.match(/\b\d{4}\s?\d{4}\s?\d{4}\b/);
+      if(aM){fld("aadhaar",aM[0].replace(/(\d{4})\s?(\d{4})\s?(\d{4})/,"$1 $2 $3"));count++;}
+      // DOB
+      const dM=text.match(/\b(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})\b/);
+      if(dM){fld("dob",dM[1].replace(/-/g,"/"));count++;}
+      // Gender
+      if(/\bFemale\b/i.test(text)){fld("gender","Female");count++;}
+      else if(/\bMale\b/i.test(text)){fld("gender","Male");count++;}
+      else if(/महिला/.test(text)){fld("gender","Female");count++;}
+      else if(/पुरुष/.test(text)){fld("gender","Male");count++;}
+      // Name (look for "Name:" label or all-caps line)
+      const nLabel=text.match(/(?:Name|नाम)\s*[:|]?\s*([A-Z][A-Za-z\s\.]{3,40})/i);
+      if(nLabel){fld("name",nLabel[1].trim());count++;}
+      else{
+        const capLine=text.split("\n").map(l=>l.trim()).find(l=>/^[A-Z][A-Z\s]{4,30}$/.test(l));
+        if(capLine){fld("name",capLine);count++;}
+      }
+      // Address (back side — concatenate first few useful lines)
+      if(side==="b"){
+        const addrLines=text.split("\n").map(l=>l.trim()).filter(l=>l.length>5&&!/^\d{4}\s\d{4}/.test(l));
+        if(addrLines.length>0){fld("address",addrLines.slice(0,4).join(", "));count++;}
+      }
+      if(count>0)setScanMsg(`✅ Auto-filled ${count} field${count>1?"s":""}! Verify & correct below.`);
+      else setScanMsg("⚠️ OCR ran but no fields extracted. Try clearer photo or fill manually.");
+    }catch(e){
+      setScanMsg(`❌ ${e.message.slice(0,120)}. Fill manually below.`);
+    }finally{setScanning(null);}
+  };
+  const sel=rooms.find(r=>r.id===form.roomId);
+  const n=nts(form.checkIn,form.checkOut);
+  const rt=sel?sel.rate*n:0;
+
+  const submit=()=>{
+    if(!form.roomId)return alert("Select a room");
+    if(!form.name.trim())return alert("Enter guest name");
+    if(!form.mobile.trim())return alert("Enter mobile number");
+    onCheckIn({...form,roomTotal:rt,_tempId:tempId,_signature:signature,_photoF:photoF,_photoB:photoB});
+    setDone(true);setTimeout(()=>{setDone(false);setView("rooms");},1400);
+  };
+
+  if(done)return(
+    <div style={{height:"100%",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16}}>
+      <div style={{fontSize:64}}>✅</div>
+      <div style={{fontSize:22,fontWeight:700,color:"var(--green)",fontFamily:"'Josefin Sans',sans-serif"}}>Check-In Done!</div>
+      <div style={{color:"var(--muted)",fontSize:14}}>Room {form.roomId} · {form.name}</div>
+    </div>
+  );
+
+  return(
+    <div className="scrollable hs" style={{height:"100%",paddingBottom:24}}>
+      <div style={{padding:"16px 14px 10px"}}><h2 style={{fontSize:20}}>Guest Check-In</h2></div>
+      <div style={{padding:"0 14px",display:"flex",flexDirection:"column",gap:12}}>
+
+        <div className="card" style={{padding:"14px 16px"}}>
+          <div className="st">ROOM & DATES</div>
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            <div><label style={{fontSize:12,fontWeight:600,color:"var(--muted)",display:"block",marginBottom:5}}>SELECT ROOM *</label>
+              <select value={form.roomId} onChange={e=>fld("roomId",e.target.value)}>
+                <option value="">-- Choose Available Room --</option>
+                {empty.map(r=><option key={r.id} value={r.id}>Room {r.id} – {r.type} · ₹{r.rate}/night</option>)}
+              </select>
+            </div>
+            {sel&&<div style={{display:"flex",justifyContent:"space-between",padding:"10px 14px",background:"var(--cream)",borderRadius:10,fontSize:13}}>
+              <span>{TYPE_META[sel.type]?.emoji} {sel.type} · Fl {sel.fl}</span>
+              <span style={{fontWeight:700,color:"var(--gold2)"}}>₹{sel.rate}/night</span>
+            </div>}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <div><label style={{fontSize:12,fontWeight:600,color:"var(--muted)",display:"block",marginBottom:5}}>CHECK-IN</label><input type="date" value={form.checkIn} onChange={e=>fld("checkIn",e.target.value)}/></div>
+              <div><label style={{fontSize:12,fontWeight:600,color:"var(--muted)",display:"block",marginBottom:5}}>CHECK-OUT</label><input type="date" value={form.checkOut} onChange={e=>fld("checkOut",e.target.value)}/></div>
+            </div>
+            {n>0&&<div style={{display:"flex",justifyContent:"space-between",padding:"10px 14px",background:"#fef3c7",borderRadius:10,fontSize:13,fontWeight:600}}>
+              <span>🌙 {n} Night{n>1?"s":""}</span><span style={{color:"var(--gold2)"}}>Room: {fmtMoney(rt)}</span>
+            </div>}
+          </div>
+        </div>
+
+        {/* ── AADHAAR PHOTOS — ONE CLICK SCAN ── */}
+        <div className="card" style={{padding:"14px 16px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div className="st" style={{margin:0}}>🪪 AADHAAR — Tap to Scan</div>
+            <div style={{fontSize:10,color:"var(--gold2)",fontWeight:700}}>🤖 AI auto-fill</div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:8}}>
+
+            {/* FRONT */}
+            <div>
+              <div style={{fontSize:11,fontWeight:700,color:"var(--muted)",marginBottom:6}}>🔵 FRONT SIDE</div>
+              {photoF?(
+                <>
+                  <div style={{position:"relative",marginBottom:6}}>
+                    <img src={photoF} style={{width:"100%",height:80,objectFit:"cover",borderRadius:8,border:"1.5px solid var(--green)",display:"block"}}/>
+                    {scanning==="f"&&(
+                      <div style={{position:"absolute",inset:0,background:"rgba(30,58,95,.85)",borderRadius:8,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",color:"#fff",gap:6}}>
+                        <div style={{fontSize:22}}>🤖</div>
+                        <div style={{fontSize:11,fontWeight:700}}>AI Scanning...</div>
+                      </div>
+                    )}
+                    <button onClick={()=>{setPhotoF(null);setScanMsg("");try{localStorage.removeItem("ph_f_"+tempId);}catch(x){}}}
+                      style={{position:"absolute",top:4,right:4,width:22,height:22,borderRadius:11,border:"none",background:"rgba(220,38,38,.9)",color:"#fff",fontSize:12,cursor:"pointer",lineHeight:1}}>×</button>
+                  </div>
+                  {/* Re-scan option if no scanning in progress */}
+                  {!scanning&&(
+                    <button onClick={()=>scanAadhaar("f")}
+                      style={{width:"100%",padding:"6px 0",border:"1px solid var(--border)",borderRadius:6,background:"#fff",fontSize:10,color:"var(--muted)",cursor:"pointer"}}>
+                      🔁 Re-scan
+                    </button>
+                  )}
+                </>
+              ):(
+                <input type="file" accept="image/*" capture="environment" onChange={e=>onPhoto(e,"f")}
+                  style={{width:"100%",boxSizing:"border-box",padding:"22px 8px",border:"2px dashed #1e3a5f",borderRadius:10,background:"#eff6ff",fontSize:12,color:"#1e3a5f",cursor:"pointer",display:"block"}}/>
+              )}
+            </div>
+
+            {/* BACK */}
+            <div>
+              <div style={{fontSize:11,fontWeight:700,color:"var(--muted)",marginBottom:6}}>🟡 BACK SIDE</div>
+              {photoB?(
+                <>
+                  <div style={{position:"relative",marginBottom:6}}>
+                    <img src={photoB} style={{width:"100%",height:80,objectFit:"cover",borderRadius:8,border:"1.5px solid var(--green)",display:"block"}}/>
+                    {scanning==="b"&&(
+                      <div style={{position:"absolute",inset:0,background:"rgba(124,58,237,.85)",borderRadius:8,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",color:"#fff",gap:6}}>
+                        <div style={{fontSize:22}}>🤖</div>
+                        <div style={{fontSize:11,fontWeight:700}}>AI Scanning...</div>
+                      </div>
+                    )}
+                    <button onClick={()=>{setPhotoB(null);setScanMsg("");try{localStorage.removeItem("ph_b_"+tempId);}catch(x){}}}
+                      style={{position:"absolute",top:4,right:4,width:22,height:22,borderRadius:11,border:"none",background:"rgba(220,38,38,.9)",color:"#fff",fontSize:12,cursor:"pointer",lineHeight:1}}>×</button>
+                  </div>
+                  {!scanning&&(
+                    <button onClick={()=>scanAadhaar("b")}
+                      style={{width:"100%",padding:"6px 0",border:"1px solid var(--border)",borderRadius:6,background:"#fff",fontSize:10,color:"var(--muted)",cursor:"pointer"}}>
+                      🔁 Re-scan
+                    </button>
+                  )}
+                </>
+              ):(
+                <input type="file" accept="image/*" capture="environment" onChange={e=>onPhoto(e,"b")}
+                  style={{width:"100%",boxSizing:"border-box",padding:"22px 8px",border:"2px dashed #7c3aed",borderRadius:10,background:"#f5f3ff",fontSize:12,color:"#7c3aed",cursor:"pointer",display:"block"}}/>
+              )}
+            </div>
+          </div>
+
+          {/* Scan status */}
+          {scanMsg&&(
+            <div style={{marginTop:10,padding:"10px 12px",borderRadius:8,fontSize:12,wordBreak:"break-word",
+              background:scanMsg.startsWith("✅")?"#f0fdf4":scanMsg.startsWith("❌")?"#fff1f2":"#fef3c7",
+              color:scanMsg.startsWith("✅")?"#16a34a":scanMsg.startsWith("❌")?"#dc2626":"#92400e",
+              borderLeft:`3px solid ${scanMsg.startsWith("✅")?"#16a34a":scanMsg.startsWith("❌")?"#dc2626":"#d97706"}`}}>
+              {scanMsg}
+            </div>
+          )}
+          <div style={{fontSize:11,color:"var(--muted)",marginTop:8,textAlign:"center"}}>📷 Upload photo → AI auto-extracts details immediately</div>
+        </div>
+
+        <div className="card" style={{padding:"14px 16px"}}>
+          <div className="st">GUEST DETAILS</div>
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            {[["FULL NAME *","name","text","As per ID"],["MOBILE *","mobile","tel","+91 XXXXX XXXXX"],["AADHAAR NUMBER","aadhaar","text","XXXX XXXX XXXX"],["DATE OF BIRTH","dob","text","DD/MM/YYYY"]].map(([l,k,t,ph])=>(
+              <div key={k}><label style={{fontSize:12,fontWeight:600,color:"var(--muted)",display:"block",marginBottom:5}}>{l}</label>
+                <input type={t} placeholder={ph} value={form[k]} onChange={e=>k==="aadhaar"?fldAadhaar(e.target.value):fld(k,e.target.value)}/></div>
+            ))}
+            <div><label style={{fontSize:12,fontWeight:600,color:"var(--muted)",display:"block",marginBottom:5}}>GENDER</label>
+              <select value={form.gender} onChange={e=>fld("gender",e.target.value)}><option value="">Select</option><option>Male</option><option>Female</option><option>Other</option></select></div>
+            <div><label style={{fontSize:12,fontWeight:600,color:"var(--muted)",display:"block",marginBottom:5}}>ADDRESS</label>
+              <textarea rows={2} placeholder="As per Aadhaar" value={form.address} onChange={e=>fld("address",e.target.value)}
+                style={{border:"1.5px solid var(--border)",borderRadius:10,padding:"11px 14px",width:"100%",resize:"none",fontFamily:"'Hind',sans-serif",fontSize:14}}/></div>
+          </div>
+        </div>
+
+        <div className="card" style={{padding:"14px 16px"}}>
+          <div className="st">STAY DETAILS</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <div><label style={{fontSize:12,fontWeight:600,color:"var(--muted)",display:"block",marginBottom:5}}>ADULTS</label>
+              <select value={form.adults} onChange={e=>fld("adults",e.target.value)}>{[1,2,3,4].map(n=><option key={n}>{n}</option>)}</select></div>
+            <div><label style={{fontSize:12,fontWeight:600,color:"var(--muted)",display:"block",marginBottom:5}}>CHILDREN</label>
+              <select value={form.children} onChange={e=>fld("children",e.target.value)}>{[0,1,2,3].map(n=><option key={n}>{n}</option>)}</select></div>
+            <div style={{gridColumn:"span 2"}}><label style={{fontSize:12,fontWeight:600,color:"var(--muted)",display:"block",marginBottom:5}}>PURPOSE OF VISIT</label>
+              <select value={form.purpose} onChange={e=>fld("purpose",e.target.value)}>{["Leisure","Business","Medical","Pilgrimage","Family Visit","Other"].map(p=><option key={p}>{p}</option>)}</select></div>
+          </div>
+        </div>
+
+        <SignaturePad onSign={setSignature}/>
+
+        <button className="btn-n" onClick={submit} style={{marginTop:4}}>
+          {signature?"✅ Confirm Check-In (Signature Captured)":"✅ Confirm Check-In"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ── PROFILE EDIT MODAL (Owner name + Hotel logo/banner) ──────── */
+function ProfileEditModal({profile,onSave,onClose}){
+  const[name,setName]=useState(profile.ownerName||"");
+  const[tagline,setTagline]=useState(profile.hotelTagline||"");
+  const[logo,setLogo]=useState(profile.hotelLogo||null);
+  const[banner,setBanner]=useState(profile.hotelBanner||null);
+
+  const onImg=(e,kind)=>{
+    const file=e.target.files&&e.target.files[0];if(!file)return;
+    const r=new FileReader();
+    r.onload=ev=>{
+      const img=new Image();
+      img.onload=()=>{
+        const cv=document.createElement("canvas");
+        const maxW=kind==="logo"?400:1200;
+        const sc=Math.min(1,maxW/Math.max(img.width,img.height,1));
+        cv.width=Math.round(img.width*sc);cv.height=Math.round(img.height*sc);
+        cv.getContext("2d").drawImage(img,0,0,cv.width,cv.height);
+        const compressed=cv.toDataURL("image/jpeg",0.75);
+        (kind==="logo"?setLogo:setBanner)(compressed);
+      };
+      img.src=ev.target.result;
+    };
+    r.readAsDataURL(file);
+    e.target.value="";
+  };
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:100,display:"flex",alignItems:"flex-end"}} onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxHeight:"90vh",overflowY:"auto",background:"#fff",borderTopLeftRadius:24,borderTopRightRadius:24}}>
+        <div style={{padding:"16px 16px 12px",borderBottom:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,background:"#fff",zIndex:1}}>
+          <h3 style={{margin:0,fontFamily:"'Josefin Sans',sans-serif"}}>👤 Edit Owner Profile</h3>
+          <button onClick={onClose} style={{background:"none",border:"none",fontSize:24,cursor:"pointer",color:"var(--muted)",lineHeight:1}}>×</button>
+        </div>
+
+        <div style={{padding:16,display:"flex",flexDirection:"column",gap:14}}>
+
+          {/* Owner Name */}
+          <div>
+            <label style={{fontSize:12,fontWeight:600,color:"var(--muted)",display:"block",marginBottom:5}}>👤 OWNER / MANAGER NAME</label>
+            <input value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Rajesh Kumar"/>
+          </div>
+
+          {/* Hotel Tagline */}
+          <div>
+            <label style={{fontSize:12,fontWeight:600,color:"var(--muted)",display:"block",marginBottom:5}}>🏨 HOTEL TAGLINE</label>
+            <input value={tagline} onChange={e=>setTagline(e.target.value)} placeholder="e.g. Your home away from home"/>
+          </div>
+
+          {/* Hotel Logo */}
+          <div>
+            <label style={{fontSize:12,fontWeight:600,color:"var(--muted)",display:"block",marginBottom:5}}>🖼️ HOTEL LOGO (Square)</label>
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              {logo?(
+                <div style={{position:"relative"}}>
+                  <img src={logo} style={{width:70,height:70,objectFit:"cover",borderRadius:12,border:"2px solid var(--gold)"}}/>
+                  <button onClick={()=>setLogo(null)} style={{position:"absolute",top:-6,right:-6,width:22,height:22,borderRadius:11,border:"none",background:"#dc2626",color:"#fff",fontSize:11,cursor:"pointer",lineHeight:1}}>×</button>
+                </div>
+              ):(
+                <div style={{width:70,height:70,borderRadius:12,border:"2px dashed var(--border)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,color:"var(--muted)"}}>🏨</div>
+              )}
+              <div style={{flex:1}}>
+                <input type="file" accept="image/*" onChange={e=>onImg(e,"logo")}
+                  style={{width:"100%",boxSizing:"border-box",padding:"10px",border:"2px dashed var(--gold)",borderRadius:8,background:"#fffbeb",fontSize:11,color:"var(--gold2)",cursor:"pointer"}}/>
+                <div style={{fontSize:10,color:"var(--muted)",marginTop:3}}>Shows in header · 400px max</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Dashboard Banner */}
+          <div>
+            <label style={{fontSize:12,fontWeight:600,color:"var(--muted)",display:"block",marginBottom:5}}>🌅 DASHBOARD BANNER</label>
+            {banner?(
+              <div style={{position:"relative",marginBottom:6}}>
+                <img src={banner} style={{width:"100%",height:120,objectFit:"cover",borderRadius:12,border:"1.5px solid var(--border)",display:"block"}}/>
+                <button onClick={()=>setBanner(null)} style={{position:"absolute",top:6,right:6,width:26,height:26,borderRadius:13,border:"none",background:"rgba(220,38,38,.95)",color:"#fff",fontSize:13,cursor:"pointer",lineHeight:1}}>×</button>
+              </div>
+            ):null}
+            <input type="file" accept="image/*" onChange={e=>onImg(e,"banner")}
+              style={{width:"100%",boxSizing:"border-box",padding:"16px 8px",border:"2px dashed var(--navy)",borderRadius:10,background:"#eff6ff",fontSize:12,color:"var(--navy)",cursor:"pointer",display:"block"}}/>
+            <div style={{fontSize:10,color:"var(--muted)",marginTop:4}}>Shown at top of Dashboard · 1200px max · landscape preferred</div>
+          </div>
+
+          <div style={{display:"flex",gap:8,marginTop:6}}>
+            <button onClick={onClose} className="btn-o" style={{flex:1}}>Cancel</button>
+            <button onClick={()=>onSave({ownerName:name.trim(),hotelTagline:tagline.trim(),hotelLogo:logo,hotelBanner:banner})} className="btn-p" style={{flex:2}}>✅ Save Profile</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── ROOM EDIT MODAL ──────────────────────────────────────────── */
+function RoomEditModal({room,onSave,onClose}){
+  const[name,setName]=useState(room.name||"");
+  const[type,setType]=useState(room.type);
+  const[rate,setRate]=useState(room.rate);
+  const[photos,setPhotos]=useState(room.photos||[]);
+  const types=Object.keys(TYPE_META);
+
+  const addPhoto=(e)=>{
+    const file=e.target.files&&e.target.files[0];if(!file)return;
+    const r=new FileReader();
+    r.onload=ev=>{
+      // Compress before storing
+      const img=new Image();
+      img.onload=()=>{
+        const cv=document.createElement("canvas");
+        const sc=Math.min(1,800/Math.max(img.width,img.height,1));
+        cv.width=Math.round(img.width*sc);cv.height=Math.round(img.height*sc);
+        cv.getContext("2d").drawImage(img,0,0,cv.width,cv.height);
+        const compressed=cv.toDataURL("image/jpeg",0.7);
+        setPhotos(p=>[...p,compressed]);
+      };
+      img.src=ev.target.result;
+    };
+    r.readAsDataURL(file);
+    e.target.value="";
+  };
+  const removePhoto=i=>setPhotos(p=>p.filter((_,idx)=>idx!==i));
+
+  const save=()=>{
+    if(!type)return alert("Select room category");
+    const r=parseInt(rate)||0;
+    if(r<=0)return alert("Enter valid rate");
+    onSave({...room,name:name.trim(),type,rate:r,photos});
+  };
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:100,display:"flex",alignItems:"flex-end"}} onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxHeight:"90vh",overflowY:"auto",background:"#fff",borderTopLeftRadius:24,borderTopRightRadius:24}}>
+        <div style={{padding:"16px 16px 12px",borderBottom:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,background:"#fff",zIndex:1}}>
+          <h3 style={{margin:0,fontFamily:"'Josefin Sans',sans-serif"}}>✏️ Edit Room {room.id}</h3>
+          <button onClick={onClose} style={{background:"none",border:"none",fontSize:24,cursor:"pointer",color:"var(--muted)",lineHeight:1}}>×</button>
+        </div>
+        <div style={{padding:16,display:"flex",flexDirection:"column",gap:12}}>
+
+          <div>
+            <label style={{fontSize:12,fontWeight:600,color:"var(--muted)",display:"block",marginBottom:5}}>CUSTOM NAME (Optional)</label>
+            <input value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Sea View, Garden Side"/>
+          </div>
+
+          <div>
+            <label style={{fontSize:12,fontWeight:600,color:"var(--muted)",display:"block",marginBottom:5}}>CATEGORY *</label>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+              {types.map(t=>(
+                <button key={t} onClick={()=>setType(t)}
+                  style={{padding:"10px 8px",border:`1.5px solid ${type===t?"var(--navy)":"var(--border)"}`,borderRadius:8,
+                    background:type===t?"var(--navy)":"#fff",color:type===t?"#fff":"var(--navy)",
+                    fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"'Josefin Sans',sans-serif"}}>
+                  {TYPE_META[t]?.emoji} {t}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label style={{fontSize:12,fontWeight:600,color:"var(--muted)",display:"block",marginBottom:5}}>RATE PER NIGHT *</label>
+            <input type="number" value={rate} onChange={e=>setRate(e.target.value)} placeholder="₹"/>
+          </div>
+
+          <div>
+            <label style={{fontSize:12,fontWeight:600,color:"var(--muted)",display:"block",marginBottom:5}}>ROOM PHOTOS</label>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:6}}>
+              {photos.map((p,i)=>(
+                <div key={i} style={{position:"relative"}}>
+                  <img src={p} style={{width:"100%",height:70,objectFit:"cover",borderRadius:8,border:"1.5px solid var(--border)",display:"block"}}/>
+                  <button onClick={()=>removePhoto(i)}
+                    style={{position:"absolute",top:3,right:3,width:20,height:20,borderRadius:10,border:"none",background:"rgba(220,38,38,.9)",color:"#fff",fontSize:11,cursor:"pointer",lineHeight:1}}>×</button>
+                </div>
+              ))}
+            </div>
+            <input type="file" accept="image/*" capture="environment" onChange={addPhoto}
+              style={{width:"100%",boxSizing:"border-box",padding:"14px 8px",border:"2px dashed var(--navy)",borderRadius:10,background:"var(--cream)",fontSize:12,color:"var(--navy)",cursor:"pointer",display:"block"}}/>
+            <div style={{fontSize:10,color:"var(--muted)",marginTop:4}}>Add multiple photos · 800px max · 70% compressed</div>
+          </div>
+
+          <div style={{display:"flex",gap:8,marginTop:6}}>
+            <button onClick={onClose} className="btn-o" style={{flex:1}}>Cancel</button>
+            <button onClick={save} className="btn-p" style={{flex:2}}>✅ Save Changes</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+function ChargesModal({booking,onAdd,onClose}){
+  const cats=[...new Set(MENU.map(m=>m.cat))];
+  const[cat,setCat]=useState(cats[0]);const[cart,setCart]=useState({});
+  const setQ=(id,q)=>setCart(p=>q>0?{...p,[id]:q}:(({[id]:_,...r})=>r)(p));
+  const items=MENU.filter(m=>cart[m.id]).map(m=>({...m,qty:cart[m.id]}));
+  const total=items.reduce((s,i)=>s+i.price*i.qty,0);
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:100,display:"flex",alignItems:"flex-end"}}>
+      <div className="card su" style={{width:"100%",borderRadius:"20px 20px 0 0",maxHeight:"88vh",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+        <div style={{padding:"16px 16px 12px",borderBottom:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div><div style={{fontWeight:700,fontSize:16}}>Add Food / Services</div><div style={{fontSize:12,color:"var(--muted)"}}>Room {booking.roomId} · {booking.name}</div></div>
+          <button onClick={onClose} style={{background:"var(--cream)",border:"none",borderRadius:8,padding:"6px 10px",fontSize:18,cursor:"pointer"}}>✕</button>
+        </div>
+        <div style={{display:"flex",gap:6,padding:"10px 14px",overflowX:"auto"}} className="hs">
+          {cats.map(c=>(
+            <button key={c} onClick={()=>setCat(c)} style={{padding:"7px 14px",borderRadius:20,border:"1.5px solid",fontSize:12,fontWeight:600,whiteSpace:"nowrap",cursor:"pointer",fontFamily:"'Josefin Sans',sans-serif",
+              background:cat===c?"var(--navy)":"transparent",color:cat===c?"#fff":"var(--navy)",borderColor:cat===c?"var(--navy)":"var(--border)"}}>
+              {c}
+            </button>
+          ))}
+        </div>
+        <div className="scrollable hs" style={{flex:1,padding:"0 14px 10px"}}>
+          {MENU.filter(m=>m.cat===cat).map(m=>(
+            <div key={m.id} style={{display:"flex",alignItems:"center",padding:"12px 0",borderBottom:"1px solid var(--border)"}}>
+              <div style={{flex:1}}><div style={{fontWeight:600,fontSize:14}}>{m.name}</div><div style={{color:"var(--gold2)",fontSize:13,fontWeight:600}}>{fmtMoney(m.price)}</div></div>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <button onClick={()=>setQ(m.id,Math.max(0,(cart[m.id]||0)-1))} style={{width:30,height:30,borderRadius:8,border:"1.5px solid var(--border)",background:"var(--cream)",cursor:"pointer",fontWeight:700,fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
+                <span style={{fontWeight:700,fontSize:15,minWidth:20,textAlign:"center"}}>{cart[m.id]||0}</span>
+                <button onClick={()=>setQ(m.id,(cart[m.id]||0)+1)} style={{width:30,height:30,borderRadius:8,border:"none",background:"var(--navy)",color:"#fff",cursor:"pointer",fontWeight:700,fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+              </div>
+            </div>
+          ))}
+        </div>
+        {total>0&&(
+          <div style={{padding:"12px 14px",borderTop:"1px solid var(--border)",background:"var(--cream)"}}>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:10,fontSize:14}}>
+              <span style={{fontWeight:600}}>{items.length} item{items.length>1?"s":""} · {fmtMoney(total)}</span>
+              <span style={{color:"var(--muted)",fontSize:12}}>+12% GST on bill</span>
+            </div>
+            <button className="btn-p" onClick={()=>{onAdd(items.map(i=>({name:i.name,price:i.price,qty:i.qty})));onClose();}}>
+              Add {fmtMoney(total)} to Room Bill
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── BOOKING MODAL ────────────────────────────────────────────── */
+function BookingModal({b,room,onAddCharge,onCheckOut,onClose}){
+  const[showC,setSC]=useState(false);
+  const charges=b.charges||[];
+  const cTotal=charges.reduce((s,c)=>s+c.price*c.qty,0);
+  const sub=b.roomTotal+cTotal;const gst=Math.round(sub*0.12);const grand=sub+gst;
+  const n=nts(b.checkIn,b.checkOut);
+  return(
+    <>
+      <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:50,display:"flex",alignItems:"flex-end"}} onClick={onClose}>
+        <div className="card su" style={{width:"100%",borderRadius:"20px 20px 0 0",maxHeight:"90vh",display:"flex",flexDirection:"column",overflow:"hidden"}} onClick={e=>e.stopPropagation()}>
+          <div style={{padding:"16px 16px 12px",background:"var(--navy)",borderRadius:"20px 20px 0 0"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+              <div>
+                <div style={{fontWeight:700,fontSize:18,color:"#fff",fontFamily:"'Josefin Sans',sans-serif"}}>Room {b.roomId}</div>
+                <div style={{fontSize:13,color:"rgba(255,255,255,.7)",marginTop:2}}>{room?.type} · {n} Night{n>1?"s":""} · {b.id}</div>
+              </div>
+              <button onClick={onClose} style={{background:"rgba(255,255,255,.15)",border:"none",borderRadius:8,padding:"6px 10px",fontSize:18,cursor:"pointer",color:"#fff"}}>✕</button>
+            </div>
+          </div>
+          <div className="scrollable hs" style={{flex:1,padding:"14px 16px",display:"flex",flexDirection:"column",gap:12}}>
+            <div style={{background:"var(--cream)",borderRadius:12,padding:"12px 14px"}}>
+              <div className="st">GUEST INFO</div>
+              {[["👤 Name",b.name],["📱 Mobile",b.mobile],["🪪 Aadhaar",b.aadhaar||"--"],["📅 Check-In",fmtDate(b.checkIn)],["📅 Check-Out",fmtDate(b.checkOut)],["👥 Guests",`${b.adults}A${b.children>0?` + ${b.children}C`:""}`],["📍 Address",b.address||"--"]].map(([l,v])=>v&&v!=="--"?(
+                <div key={l} style={{display:"flex",gap:8,marginBottom:6,fontSize:13}}>
+                  <span style={{color:"var(--muted)",minWidth:90,flexShrink:0}}>{l}</span>
+                  <span style={{fontWeight:500,flex:1,wordBreak:"break-word"}}>{v}</span>
+                </div>
+              ):null)}
+            </div>
+            <div style={{background:"var(--cream)",borderRadius:12,padding:"12px 14px"}}>
+              <div className="st">BILL</div>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:14,marginBottom:8}}><span>Room × {n}N</span><span style={{fontWeight:600}}>{fmtMoney(b.roomTotal)}</span></div>
+              {charges.map((c,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:5,color:"var(--muted)"}}><span>{c.name} × {c.qty}</span><span>{fmtMoney(c.price*c.qty)}</span></div>)}
+              <div style={{height:1,background:"var(--border)",margin:"8px 0"}}/>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:13}}><span>Subtotal</span><span style={{fontWeight:600}}>{fmtMoney(sub)}</span></div>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:"var(--muted)"}}><span>GST 12%</span><span>{fmtMoney(gst)}</span></div>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:17,fontWeight:700,color:"var(--navy)",marginTop:6}}><span>TOTAL</span><span>{fmtMoney(grand)}</span></div>
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              <button className="btn-o" onClick={()=>setSC(true)} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>➕ Add Food / Services</button>
+              <button className="btn-p" onClick={()=>openInvoice(b,room)}>🖨️ Print / Share Invoice</button>
+              <button className="btn-d" onClick={()=>{if(window.confirm(`Check out ${b.name}?\nTotal: ${fmtMoney(grand)} (incl. GST)`))onCheckOut(b.id);}}>🚪 Check Out & Settle</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      {showC&&<ChargesModal booking={b} onAdd={items=>onAddCharge(b.id,items)} onClose={()=>setSC(false)}/>}
+    </>
+  );
+}
+
+/* ── BILLING VIEW ─────────────────────────────────────────────── */
+function BillingView({rooms,bookings,setModal}){
+  const active=bookings.filter(b=>b.status==="active");
+  const[search,setSrch]=useState("");
+  const list=active.filter(b=>b.name.toLowerCase().includes(search.toLowerCase())||b.roomId.includes(search));
+  return(
+    <div className="scrollable hs" style={{height:"100%",paddingBottom:20}}>
+      <div style={{padding:"16px 14px 10px"}}><h2 style={{fontSize:20}}>Billing & Charges</h2><p style={{fontSize:13,color:"var(--muted)"}}>{active.length} active booking{active.length!==1?"s":""}</p></div>
+      <div style={{padding:"0 14px 12px"}}><input placeholder="🔍 Search name or room..." value={search} onChange={e=>setSrch(e.target.value)}/></div>
+      {list.length===0?(
+        <div style={{textAlign:"center",padding:"60px 24px",color:"var(--muted)"}}><div style={{fontSize:48,marginBottom:12}}>📋</div><div style={{fontSize:16,fontWeight:600}}>No Active Bookings</div></div>
+      ):(
+        <div style={{padding:"0 14px",display:"flex",flexDirection:"column",gap:10}}>
+          {list.map(b=>{
+            const room=rooms.find(r=>r.id===b.roomId);
+            const cSum=(b.charges||[]).reduce((s,c)=>s+c.price*c.qty,0);
+            const sub=b.roomTotal+cSum;const grand=sub+Math.round(sub*0.12);
+            const n=nts(b.checkIn,b.checkOut);
+            return(
+              <div key={b.id} className="card" onClick={()=>setModal({type:"booking",b,room})} style={{padding:"14px 16px",cursor:"pointer"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                  <div>
+                    <div style={{fontWeight:700,fontSize:15}}>{b.name}</div>
+                    <div style={{fontSize:12,color:"var(--muted)",marginTop:2}}>Room {b.roomId} · {room?.type} · {n}N · Out: {fmtDate(b.checkOut)}</div>
+                    {b.aadhaar&&<div style={{fontSize:11,color:"var(--blue)",marginTop:2}}>🪪 {b.aadhaar}</div>}
+                    {(b.charges||[]).length>0&&<div style={{fontSize:11,color:"var(--gold2)",marginTop:2}}>+{b.charges.length} extra item{b.charges.length>1?"s":""}</div>}
+                  </div>
+                  <div style={{textAlign:"right"}}><div style={{fontWeight:700,fontSize:16,color:"var(--navy)"}}>{fmtMoney(grand)}</div><div style={{fontSize:11,color:"var(--muted)"}}>incl. GST</div></div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── DOCUMENT VAULT — PERSISTENT AADHAAR STORAGE + RETRIEVAL ──── */
+function DocumentsView({bookings,rooms}){
+  const[search,setSrch]=useState("");const[tab,setTab]=useState("all");
+  const[sel,setSel]=useState(null);const[docs,setDocs]=useState({f:null,b:null,sig:null,loading:false});
+
+  const counts={active:bookings.filter(b=>b.status==="active").length,checkedout:bookings.filter(b=>b.status==="checkedout").length,all:bookings.length};
+  const list=bookings
+    .filter(b=>tab==="all"||b.status===tab)
+    .filter(b=>[b.name,b.roomId,b.mobile,b.aadhaar].join(" ").toLowerCase().includes(search.toLowerCase()))
+    .sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
+
+  const openGuest=async(booking)=>{
+    setSel(booking);setDocs({f:null,b:null,sig:null,loading:true});
+    try{
+      const[f,bk,sig]=await Promise.all([
+        WS.getRawImg(`img_front_${booking.id}`),
+        WS.getRawImg(`img_back_${booking.id}`),
+        WS.getRawImg(`sig_${booking.id}`)
+      ]);
+      setDocs({f,b:bk,sig:sig||booking.signature||null,loading:false});
+    }catch{setDocs({f:null,b:null,sig:booking.signature||null,loading:false});}
+  };
+
+  if(sel){
+    const n=nts(sel.checkIn,sel.checkOut);
+    const cSum=(sel.charges||[]).reduce((s,c)=>s+c.price*c.qty,0);
+    const sub=sel.roomTotal+cSum;const grand=sel.grandTotal||(sub+Math.round(sub*0.12));
+    return(
+      <div className="scrollable hs" style={{height:"100%",paddingBottom:20}}>
+        <div style={{padding:"14px 14px 10px",display:"flex",alignItems:"center",gap:10}}>
+          <button onClick={()=>setSel(null)} style={{background:"var(--cream)",border:"1px solid var(--border)",borderRadius:8,padding:"6px 12px",cursor:"pointer",fontWeight:700,color:"var(--navy)"}}>← Back</button>
+          <div><div style={{fontWeight:700,fontSize:16}}>{sel.name}</div><div style={{fontSize:12,color:"var(--muted)"}}>Room {sel.roomId} · {sel.id}</div></div>
+        </div>
+        <div style={{padding:"0 14px",display:"flex",flexDirection:"column",gap:12}}>
+          {/* Profile */}
+          <div className="card" style={{padding:"14px 16px"}}>
+            <div className="st">GUEST PROFILE</div>
+            {[["👤 Name",sel.name],["📱 Mobile",sel.mobile],["🪪 Aadhaar",sel.aadhaar||"--"],["⚧️ Gender",sel.gender||"--"],["🎂 DOB",sel.dob||"--"],
+              ["📍 Address",sel.address||"--"],["🏨 Room",`${sel.roomId} (${rooms.find(r=>r.id===sel.roomId)?.type||""})`],
+              ["📅 Check-In",fmtDate(sel.checkIn)],["📅 Check-Out",fmtDate(sel.checkOut)],
+              ["🌙 Nights",`${n} Night${n>1?"s":""}`],["👥 Guests",`${sel.adults}A${sel.children>0?` + ${sel.children}C`:""}`],
+              ["🎯 Purpose",sel.purpose||"--"],["💰 Bill",fmtMoney(grand)+" (incl. GST)"]
+            ].map(([l,v])=>v&&v!=="--"?(
+              <div key={l} style={{display:"flex",gap:8,marginBottom:7,fontSize:13}}>
+                <span style={{color:"var(--muted)",minWidth:90,flexShrink:0}}>{l}</span>
+                <span style={{fontWeight:500,flex:1,wordBreak:"break-word"}}>{v}</span>
+              </div>
+            ):null)}
+            <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>
+              <span className={`badge ${sel.status==="active"?"bg":"bb"}`}>{sel.status==="active"?"Active":"Checked Out"}</span>
+              {sel.grandTotal&&<span className="badge bo">₹{sel.grandTotal} Settled</span>}
+            </div>
+          </div>
+
+          {/* Signature */}
+          <div className="card" style={{padding:"14px 16px"}}>
+            <div className="st">✍️ GUEST SIGNATURE</div>
+            {docs.loading?(
+              <div style={{textAlign:"center",padding:16,color:"var(--muted)",fontSize:13}}>Loading...</div>
+            ):docs.sig?(
+              <div>
+                <img src={docs.sig} alt="signature" style={{width:"100%",maxHeight:120,objectFit:"contain",border:"1px solid var(--border)",borderRadius:8,background:"#fff",padding:8}}/>
+                <div style={{display:"flex",gap:8,marginTop:8}}>
+                  <a href={docs.sig} download={`signature_${sel.id}.png`} style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:6,padding:"9px",background:"var(--cream)",borderRadius:8,fontSize:13,color:"var(--navy)",fontWeight:600,textDecoration:"none",border:"1px solid var(--border)"}}>
+                    ⬇️ Download Signature
+                  </a>
+                </div>
+              </div>
+            ):(
+              <div style={{textAlign:"center",padding:20,color:"var(--muted)",fontSize:13}}>
+                <div style={{fontSize:32,marginBottom:6}}>✍️</div>
+                No signature captured during check-in
+              </div>
+            )}
+          </div>
+
+          {/* Aadhaar docs */}
+          <div className="card" style={{padding:"14px 16px"}}>
+            <div className="st">📁 STORED AADHAAR DOCUMENTS</div>
+            {docs.loading?(
+              <div style={{textAlign:"center",padding:"24px",color:"var(--muted)"}}>
+                <div className="spin" style={{display:"inline-block",fontSize:28}}>⚙️</div>
+                <div style={{marginTop:8,fontSize:13}}>Loading from secure vault...</div>
+              </div>
+            ):docs.f||docs.b?(
+              <div style={{display:"flex",flexDirection:"column",gap:14}}>
+                {[["🔵 Aadhaar Front",docs.f,`front_${sel.id}`],["🟡 Aadhaar Back",docs.b,`back_${sel.id}`]].map(([label,src,fname])=>src?(
+                  <div key={label}>
+                    <div style={{fontSize:13,fontWeight:700,color:"var(--navy)",marginBottom:8}}>{label}</div>
+                    <img src={src} alt={label} style={{width:"100%",borderRadius:10,border:"1px solid var(--border)",objectFit:"contain",background:"#f9f9f9",maxHeight:200}}/>
+                    <a href={src} download={`aadhaar_${fname}.jpg`} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginTop:8,padding:"9px",background:"var(--cream)",borderRadius:8,fontSize:13,color:"var(--navy)",fontWeight:600,textDecoration:"none",border:"1px solid var(--border)"}}>
+                      ⬇️ Download {label.includes("Front")?"Front":"Back"} Image
+                    </a>
+                  </div>
+                ):null)}
+              </div>
+            ):(
+              <div style={{textAlign:"center",padding:"24px",color:"var(--muted)"}}>
+                <div style={{fontSize:40,marginBottom:8}}>🗂️</div>
+                <div style={{fontSize:14,fontWeight:600}}>No Documents Stored</div>
+                <div style={{fontSize:12,marginTop:4,lineHeight:1.5}}>Aadhaar images are saved during check-in when scanned via the Aadhaar Scanner</div>
+              </div>
+            )}
+          </div>
+
+          {/* Extra charges */}
+          {(sel.charges||[]).length>0&&(
+            <div className="card" style={{padding:"14px 16px"}}>
+              <div className="st">EXTRA CHARGES ({sel.charges.length})</div>
+              {sel.charges.map((c,i)=>(
+                <div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:5}}>
+                  <span>{c.name} × {c.qty}</span><span style={{fontWeight:600}}>{fmtMoney(c.price*c.qty)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <button className="btn-o" onClick={()=>openInvoice(sel,rooms.find(r=>r.id===sel.roomId))} style={{width:"100%"}}>🖨️ Reprint Invoice</button>
+        </div>
+      </div>
+    );
+  }
+
+  return(
+    <div className="scrollable hs" style={{height:"100%",paddingBottom:20}}>
+      <div style={{padding:"16px 14px 10px"}}>
+        <h2 style={{fontSize:20}}>🗂️ Document Vault</h2>
+        <p style={{fontSize:13,color:"var(--muted)"}}>Aadhaar images + guest records · Persists across sessions</p>
+      </div>
+      <div style={{padding:"0 14px 10px"}}><input placeholder="🔍 Name · Room · Mobile · Aadhaar No..." value={search} onChange={e=>setSrch(e.target.value)}/></div>
+      <div style={{display:"flex",gap:6,padding:"0 14px",marginBottom:12}}>
+        {[["active","Active"],["checkedout","Checked Out"],["all","All"]].map(([v,l])=>(
+          <button key={v} onClick={()=>setTab(v)} style={{padding:"7px 14px",borderRadius:20,border:"1.5px solid",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"'Josefin Sans',sans-serif",
+            background:tab===v?"var(--navy)":"transparent",color:tab===v?"#fff":"var(--navy)",borderColor:tab===v?"var(--navy)":"var(--border)"}}>
+            {l} ({counts[v]||0})
+          </button>
+        ))}
+      </div>
+      {list.length===0?(
+        <div style={{textAlign:"center",padding:"60px 24px",color:"var(--muted)"}}><div style={{fontSize:48,marginBottom:12}}>🗂️</div><div style={{fontSize:16,fontWeight:600}}>No Records Found</div></div>
+      ):(
+        <div style={{padding:"0 14px",display:"flex",flexDirection:"column",gap:8}}>
+          {list.map(b=>{
+            const n=nts(b.checkIn,b.checkOut);
+            return(
+              <div key={b.id} className="card" onClick={()=>openGuest(b)} style={{padding:"13px 16px",cursor:"pointer"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                      <span style={{fontWeight:700,fontSize:14}}>{b.name}</span>
+                      <span className={`badge ${b.status==="active"?"bg":"bb"}`}>{b.status==="active"?"Active":"Checked Out"}</span>
+                    </div>
+                    <div style={{fontSize:12,color:"var(--muted)",marginTop:3}}>Room {b.roomId} · {n}N · {fmtDate(b.checkIn)} → {fmtDate(b.checkOut)}</div>
+                    {b.mobile&&<div style={{fontSize:11,color:"var(--blue)",marginTop:2}}>📱 {b.mobile}</div>}
+                    {b.aadhaar&&<div style={{fontSize:11,color:"var(--muted)",marginTop:1}}>🪪 {b.aadhaar}</div>}
+                  </div>
+                  <div style={{textAlign:"right",marginLeft:10,flexShrink:0}}>
+                    <div style={{fontSize:13,fontWeight:700,color:"var(--navy)"}}>{fmtMoney(b.grandTotal||(b.roomTotal||0))}</div>
+                    <div style={{fontSize:11,color:"var(--gold2)",marginTop:2}}>📸 View Docs →</div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── BOTTOM NAV ───────────────────────────────────────────────── */
+function BottomNav({view,setView}){
+  const items=[{id:"dash",icon:"📊",label:"Dashboard"},{id:"rooms",icon:"🏨",label:"Rooms"},{id:"checkin",icon:"✅",label:"Check-In"},{id:"billing",icon:"💰",label:"Billing"},{id:"docs",icon:"🗂️",label:"Vault"}];
+  return(
+    <div style={{display:"flex",background:"#fff",borderTop:"1px solid var(--border)",boxShadow:"0 -2px 12px rgba(0,0,0,.06)"}}>
+      {items.map(i=>(
+        <button key={i.id} onClick={()=>setView(i.id)} style={{flex:1,padding:"10px 4px 8px",border:"none",background:"transparent",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,position:"relative"}}>
+          {view===i.id&&<div style={{position:"absolute",top:0,left:"50%",transform:"translateX(-50%)",height:3,width:28,background:"var(--gold)",borderRadius:"0 0 4px 4px"}}/>}
+          <span style={{fontSize:20,filter:view===i.id?"saturate(1)":"saturate(.3)",transition:"filter .2s"}}>{i.icon}</span>
+          <span style={{fontSize:10,fontFamily:"'Josefin Sans',sans-serif",fontWeight:700,letterSpacing:.5,color:view===i.id?"var(--navy)":"var(--muted)"}}>{i.label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  ROOT APP — ASYNC STORAGE BOOTSTRAP
+// ═══════════════════════════════════════════════════════════════
+function App(){
+  const[ready,setReady]=useState(false);
+  const[user,setUser]=useState(null);
+  const[view,setView]=useState("dash");
+  const[rooms,setRooms]=useState([]);
+  const[bookings,setBookings]=useState([]);
+  const[modal,setModal]=useState(null);
+  const[checkInRoom,setCIR]=useState(null);
+  const[profile,setProfile]=useState(()=>{
+    try{return{ownerName:localStorage.getItem("ownerName")||"",hotelTagline:localStorage.getItem("hotelTagline")||"",hotelLogo:localStorage.getItem("hotelLogo")||null,hotelBanner:localStorage.getItem("hotelBanner")||null};}
+    catch{return{ownerName:"",hotelTagline:"",hotelLogo:null,hotelBanner:null};}
+  });
+  const saveProfile=(p)=>{
+    setProfile(p);
+    try{
+      localStorage.setItem("ownerName",p.ownerName||"");
+      localStorage.setItem("hotelTagline",p.hotelTagline||"");
+      if(p.hotelLogo)localStorage.setItem("hotelLogo",p.hotelLogo);else localStorage.removeItem("hotelLogo");
+      if(p.hotelBanner)localStorage.setItem("hotelBanner",p.hotelBanner);else localStorage.removeItem("hotelBanner");
+    }catch{}
+  };
+
+  // Inject CSS
+  useEffect(()=>{
+    const s=document.createElement("style");s.textContent=CSS;document.head.appendChild(s);
+    return()=>document.head.removeChild(s);
+  },[]);
+
+  // Load from persistent storage on boot
+  useEffect(()=>{
+    (async()=>{
+      try{
+        const[r,b,u]=await Promise.all([WS.get("rooms"),WS.get("bookings"),WS.get("cu")]);
+        setRooms(r||initRooms());setBookings(b||[]);if(u)setUser(u);
+      }catch{
+        setRooms(LS.get("rooms",initRooms()));setBookings(LS.get("bookings",[]));
+        const u=LS.get("user",null);if(u)setUser(u);
+      }finally{setReady(true);}
+    })();
+  },[]);
+
+  // Save helpers (dual write)
+  const saveRooms=async r=>{setRooms(r);LS.set("rooms",r);await WS.set("rooms",r);};
+  const saveBk=async b=>{setBookings(b);LS.set("bookings",b);await WS.set("bookings",b);};
+
+  // Actions
+  const handleCheckIn=async form=>{
+    const id=form._tempId||uid();
+    const{_tempId,_signature,_photoF,_photoB,...clean}=form;
+    const nb={...clean,id,status:"active",charges:[],createdAt:new Date().toISOString()};
+    if(_signature){
+      nb.signature=_signature;
+      try{await WS.setRawImg(`sig_${id}`,_signature);}catch{}
+    }
+    if(_photoF){try{await WS.setRawImg(`img_front_${id}`,_photoF);}catch{}try{localStorage.setItem(`ab_img_front_${id}`,_photoF);}catch{}}
+    if(_photoB){try{await WS.setRawImg(`img_back_${id}`,_photoB);}catch{}try{localStorage.setItem(`ab_img_back_${id}`,_photoB);}catch{}}
+    await saveRooms(rooms.map(r=>r.id===form.roomId?{...r,status:"occupied",bookingId:id}:r));
+    await saveBk([...bookings,nb]);setCIR(null);
+  };
+  const handleAddCharge=async(bid,items)=>{
+    const nb=bookings.map(b=>b.id===bid?{...b,charges:[...(b.charges||[]),...items]}:b);
+    await saveBk(nb);
+    if(modal?.b?.id===bid)setModal(p=>({...p,b:{...p.b,charges:[...(p.b.charges||[]),...items]}}));
+  };
+  const handleCheckOut=async bid=>{
+    const b=bookings.find(x=>x.id===bid);const room=rooms.find(r=>r.id===b.roomId);
+    const cSum=(b.charges||[]).reduce((s,c)=>s+c.price*c.qty,0);
+    const sub=b.roomTotal+cSum;const gst=Math.round(sub*0.12);const grand=sub+gst;
+    const ub={...b,status:"checkedout",checkOutActual:todayStr(),grandTotal:grand,subTotal:sub,gstAmt:gst};
+    await saveRooms(rooms.map(r=>r.id===b.roomId?{...r,status:"empty",bookingId:null}:r));
+    await saveBk(bookings.map(x=>x.id===bid?ub:x));
+    openInvoice(ub,room);setModal(null);
+  };
+  const handleLogin=async s=>{setUser(s);LS.set("user",s);await WS.set("cu",s);};
+  const handleLogout=async()=>{setUser(null);LS.set("user",null);await WS.del("cu");setView("dash");};
+
+  // Loading
+  if(!ready)return(
+    <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"var(--navy)",gap:16}}>
+      <div style={{fontSize:54}}>🏨</div>
+      <div style={{fontFamily:"'Josefin Sans',sans-serif",fontSize:24,color:"#fff",letterSpacing:2}}>ATITHIBOOK</div>
+      <div className="spin" style={{display:"inline-block",fontSize:28,marginTop:8}}>⚙️</div>
+      <div style={{color:"rgba(255,255,255,.5)",fontSize:13}}>Loading secure vault...</div>
+    </div>
+  );
+  if(!user)return <LoginScreen onLogin={handleLogin}/>;
+
+  const liveB=bookings.find(b=>b.id===modal?.b?.id)||modal?.b;
+
+  return(
+    <div style={{maxWidth:430,margin:"0 auto",height:"100svh",display:"flex",flexDirection:"column",background:"var(--cream)",overflow:"hidden"}}>
+      {/* Header */}
+      <div style={{background:"var(--navy)",padding:"12px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,boxShadow:"0 2px 10px rgba(0,0,0,.2)"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          {profile.hotelLogo
+            ?<img src={profile.hotelLogo} style={{width:36,height:36,borderRadius:9,objectFit:"cover",border:"1.5px solid var(--gold)"}}/>
+            :<span style={{fontSize:22}}>🏨</span>
+          }
+          <div>
+            <div style={{fontFamily:"'Josefin Sans',sans-serif",fontWeight:700,fontSize:17,color:"#fff",letterSpacing:1}}>ATITHIBOOK</div>
+            <div style={{fontSize:10,color:"rgba(255,255,255,.5)",letterSpacing:.5}}>{HOTEL.name}</div>
+          </div>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <div onClick={()=>setModal({type:"editProfile"})} style={{textAlign:"right",cursor:"pointer"}}>
+            <div style={{fontSize:12,color:"#fff",fontWeight:600}}>{profile.ownerName||user.name} ✏️</div>
+            <div style={{fontSize:10,color:"var(--gold)"}}>{user.role}</div>
+          </div>
+          <button onClick={handleLogout} style={{background:"rgba(255,255,255,.12)",border:"none",borderRadius:8,padding:"6px 10px",color:"rgba(255,255,255,.7)",cursor:"pointer",fontSize:12,fontFamily:"'Josefin Sans',sans-serif"}}>Exit</button>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div style={{flex:1,overflow:"hidden"}}>
+        {view==="dash"&&<DashboardView rooms={rooms} bookings={bookings} user={user} setView={setView} setModal={setModal} profile={profile}/>}
+        {view==="rooms"&&<RoomsView rooms={rooms} bookings={bookings} setModal={setModal} setView={setView} setCheckInRoom={setCIR}/>}
+        {view==="checkin"&&<CheckInView rooms={rooms} checkInRoom={checkInRoom} onCheckIn={handleCheckIn} setView={setView}/>}
+        {view==="billing"&&<BillingView rooms={rooms} bookings={bookings} setModal={setModal}/>}
+        {view==="docs"&&<DocumentsView bookings={bookings} rooms={rooms}/>}
+      </div>
+
+      {/* Nav */}
+      <div style={{flexShrink:0}}><BottomNav view={view} setView={setView}/></div>
+
+      {/* Booking modal */}
+      {modal?.type==="booking"&&liveB&&(
+        <BookingModal b={liveB} room={modal.room} onAddCharge={handleAddCharge} onCheckOut={handleCheckOut} onClose={()=>setModal(null)}/>
+      )}
+      {/* Room edit modal */}
+      {modal?.type==="editRoom"&&(
+        <RoomEditModal room={modal.room}
+          onSave={async(updated)=>{await saveRooms(rooms.map(r=>r.id===updated.id?updated:r));setModal(null);}}
+          onClose={()=>setModal(null)}/>
+      )}
+      {/* Profile edit modal */}
+      {modal?.type==="editProfile"&&(
+        <ProfileEditModal profile={profile}
+          onSave={(p)=>{saveProfile(p);setModal(null);}}
+          onClose={()=>setModal(null)}/>
+      )}
+    </div>
+  );
+}
+
+    // Mount React app and hide loader
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+    setTimeout(() => { const l = document.getElementById('loader'); if (l) l.style.display = 'none'; }, 300);
+  </script>
+</body>
+</html>
