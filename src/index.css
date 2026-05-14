@@ -1,4 +1,0 @@
-/* CSS is injected by App.jsx via useEffect — this file kept intentionally minimal */
-* { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-body { font-family: 'Hind', sans-serif; }
